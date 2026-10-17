@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#c8d6a0">
+<title>Snake 97 — Classic Mobile Snake</title>
+<style>
+:root{--lcd:#c8d6a0;--ink:#26351e;--mid:#71865a;--light:#e5edc8;--shell:#d8d8c9}
+*{box-sizing:border-box}
+body{margin:0;min-height:100svh;display:grid;place-items:center;background:radial-gradient(ellipse at top,#3d4b37,#171d19 70%);font-family:Arial,Helvetica,sans-serif;color:var(--ink);padding:18px}
+.phone{width:min(100%,390px);background:linear-gradient(145deg,#f0f0e4,#b9bcad);border:3px solid #9b9e91;border-radius:36px 36px 48px 48px;padding:22px 20px 26px;box-shadow:0 22px 55px #0009,inset 2px 2px 4px #fff}
+.brand{font-weight:900;letter-spacing:5px;text-align:center;color:#4b5147;font-size:12px;margin:0 0 14px}
+.screen-frame{background:#727d65;border-radius:12px;padding:12px;box-shadow:inset 0 2px 7px #20291c}
+.screen{position:relative;background:var(--lcd);border:2px solid #3b4931;overflow:hidden}
+.hud{display:flex;justify-content:space-between;gap:8px;padding:7px 9px;font-family:monospace;font-size:13px;font-weight:bold;border-bottom:2px solid #71865a}
+canvas{display:block;width:100%;height:auto;image-rendering:pixelated;touch-action:none}
+.overlay{position:absolute;inset:31px 0 0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;background:#c8d6a0eF;padding:18px}
+.overlay h1{font-size:clamp(22px,7vw,30px);margin:0 0 8px;letter-spacing:2px}
+.overlay p{font:14px/1.5 monospace;margin:0 0 16px;max-width:240px}
+button{font:700 13px monospace;letter-spacing:1px;color:#e5edc8;background:#34442b;border:0;border-radius:7px;padding:12px 17px;box-shadow:0 4px 0 #1b2716;cursor:pointer;touch-action:manipulation}
+button:active{transform:translateY(3px);box-shadow:0 1px 0 #1b2716}
+.controls{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;width:210px;margin:20px auto 15px}
+.controls button{height:48px;font-size:19px;padding:0;border-radius:12px;background:linear-gradient(#5a6357,#343c34);color:#e9eadc;box-shadow:0 4px 0 #242a23}
+.controls .empty{visibility:hidden}
+.action-row{display:flex;justify-content:center;gap:12px}
+.action-row button{font-size:11px;padding:10px 12px}
+.tip{text-align:center;color:#50574c;font-size:10px;letter-spacing:1.5px;margin:21px 0 0}
+@media(min-width:500px){.phone{transform:scale(1.02)}}
+</style>
+</head>
+<body>
+<main class="phone" aria-label="Classic Snake game">
+  <div class="brand">SNAKE 97</div>
+  <div class="screen-frame"><section class="screen">
+    <div class="hud"><span>SCORE <b id="score">000</b></span><span>BEST <b id="best">000</b></span><span id="status">READY</span></div>
+    <canvas id="game" width="320" height="320" aria-label="Snake game board"></canvas>
+    <div class="overlay" id="overlay"><h1>SNAKE</h1><p>Eat the pixels. Don't hit the walls or your own tail.</p><button id="start">START GAME</button></div>
+  </section></div>
+  <div class="controls" aria-label="Touch controls">
+    <span class="empty"></span><button data-dir="up" aria-label="Up">▲</button><span class="empty"></span>
+    <button data-dir="left" aria-label="Left">◀</button><button data-dir="down" aria-label="Down">▼</button><button data-dir="right" aria-label="Right">▶</button>
+  </div>
+  <div class="action-row"><button id="pause">PAUSE</button><button id="restart">RESTART</button></div>
+  <p class="tip">ARROWS / WASD TO MOVE · P TO PAUSE</p>
+</main>
+<script>
+(()=>{
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d'),overlay=document.getElementById('overlay');
+const scoreEl=document.getElementById('score'),bestEl=document.getElementById('best'),statusEl=document.getElementById('status');
+const SIZE=16,CELL=20,START_LENGTH=4;
+let snake,dir,nextDir,food,score,best=Number(localStorage.getItem('snake97-best')||0),timer=null,playing=false,paused=false,over=false,speed=145;
+bestEl.textContent=String(best).padStart(3,'0');
+const dirs={up:{x:0,y:-1},down:{x:0,y:1},left:{x:-1,y:0},right:{x:1,y:0}};
+function randomFood(){let p;do{p={x:Math.floor(Math.random()*SIZE),y:Math.floor(Math.random()*SIZE)}}while(snake.some(s=>s.x===p.x&&s.y===p.y));return p}
+function reset(){clearInterval(timer);snake=[];for(let i=0;i<START_LENGTH;i++)snake.push({x:7-i,y:8});dir={...dirs.right};nextDir={...dir};score=0;speed=145;food=randomFood();playing=false;paused=false;over=false;scoreEl.textContent='000';statusEl.textContent='READY';draw()}
+function start(){if(over)reset();overlay.style.display='none';playing=true;paused=false;statusEl.textContent='PLAY';document.getElementById('pause').textContent='PAUSE';loop()}
+function loop(){clearInterval(timer);if(playing&&!paused)timer=setInterval(tick,speed)}
+function tick(){dir={...nextDir};const head={x:snake[0].x+dir.x,y:snake[0].y+dir.y};const eating=head.x===food.x&&head.y===food.y;const body=eating?snake:snake.slice(0,-1);
+if(head.x<0||head.x>=SIZE||head.y<0||head.y>=SIZE||body.some(s=>s.x===head.x&&s.y===head.y)){end();return}
+snake.unshift(head);if(eating){score+=10;scoreEl.textContent=String(score).padStart(3,'0');if(score>best){best=score;localStorage.setItem('snake97-best',best);bestEl.textContent=String(best).padStart(3,'0')}food=randomFood();speed=Math.max(65,145-Math.floor(score/50)*8);loop()}else snake.pop();draw()}
+function end(){clearInterval(timer);playing=false;over=true;statusEl.textContent='GAME OVER';overlay.style.display='flex';overlay.querySelector('h1').textContent='GAME OVER';overlay.querySelector('p').textContent='SCORE: '+score+' · BEST: '+best;overlay.querySelector('button').textContent='PLAY AGAIN';draw()}
+function setDirection(name){const d=dirs[name];if(!d||!playing||paused)return;if(d.x===-dir.x&&d.y===-dir.y)return;nextDir={...d}}
+function draw(){ctx.fillStyle='#c8d6a0';ctx.fillRect(0,0,320,320);ctx.strokeStyle='#b6c693';ctx.lineWidth=.5;for(let i=0;i<=SIZE;i++){ctx.beginPath();ctx.moveTo(i*CELL,0);ctx.lineTo(i*CELL,320);ctx.stroke();ctx.beginPath();ctx.moveTo(0,i*CELL);ctx.lineTo(320,i*CELL);ctx.stroke()}
+if(food){ctx.fillStyle='#26351e';ctx.fillRect(food.x*CELL+4,food.y*CELL+4,12,12);ctx.fillRect(food.x*CELL+8,food.y*CELL+1,4,4)}
+snake?.forEach((s,i)=>{ctx.fillStyle=i===0?'#1c2a17':'#34472a';ctx.fillRect(s.x*CELL+1,s.y*CELL+1,CELL-2,CELL-2);if(i===0){ctx.fillStyle='#c8d6a0';if(dir.x!==0){ctx.fillRect(s.x*CELL+(dir.x>0?13:4),s.y*CELL+5,3,3);ctx.fillRect(s.x*CELL+(dir.x>0?13:4),s.y*CELL+12,3,3)}else{ctx.fillRect(s.x*CELL+5,s.y*CELL+(dir.y>0?13:4),3,3);ctx.fillRect(s.x*CELL+12,s.y*CELL+(dir.y>0?13:4),3,3)}}})}
+function togglePause(){if(!playing&&!paused)return;paused=!paused;statusEl.textContent=paused?'PAUSE':'PLAY';document.getElementById('pause').textContent=paused?'RESUME':'PAUSE';if(paused){clearInterval(timer);overlay.style.display='flex';overlay.querySelector('h1').textContent='PAUSED';overlay.querySelector('p').textContent='Take a breath. The snake can wait.';overlay.querySelector('button').textContent='RESUME'}else{overlay.style.display='none';loop()}}
+document.getElementById('start').addEventListener('click',()=>{if(paused){togglePause();return}start()});
+document.getElementById('pause').addEventListener('click',togglePause);
+document.getElementById('restart').addEventListener('click',()=>{reset();start()});
+document.querySelectorAll('[data-dir]').forEach(b=>b.addEventListener('click',()=>setDirection(b.dataset.dir)));
+window.addEventListener('keydown',e=>{const map={ArrowUp:'up',w:'up',W:'up',ArrowDown:'down',s:'down',S:'down',ArrowLeft:'left',a:'left',A:'left',ArrowRight:'right',d:'right',D:'right'};if(map[e.key]){e.preventDefault();setDirection(map[e.key])}if(e.key===' '||e.key==='p'||e.key==='P'){e.preventDefault();togglePause()}if(e.key==='Enter'&&!playing&&!paused)start()});
+let touchX=0,touchY=0;canvas.addEventListener('touchstart',e=>{touchX=e.changedTouches[0].clientX;touchY=e.changedTouches[0].clientY},{passive:true});canvas.addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-touchX,dy=e.changedTouches[0].clientY-touchY;if(Math.max(Math.abs(dx),Math.abs(dy))<18)return;setDirection(Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):(dy>0?'down':'up'))},{passive:true});
+reset();
+})();
+</script>
+</body>
+</html>
